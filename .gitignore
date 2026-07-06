@@ -33,3 +33,4 @@ navigation/
 keystore.properties
 app/src/main/assets/nodejs-project/node_modules/
 app/libnode/
+app/google-services.json
