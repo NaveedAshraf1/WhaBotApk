@@ -12,7 +12,6 @@ enum class Screen(
     Dashboard("Dashboard", Icons.Filled.Dashboard, "dashboard"),
     RawData("Add Raw Data", Icons.Filled.AutoFixHigh, "raw_data"),
     Connect("Connect WhatsApp", Icons.Filled.QrCodeScanner, "connect"),
-    Send("Send Message", Icons.Filled.Send, "send"),
     BulkSend("Bulk Send", Icons.Filled.Group, "bulk_send"),
     Inbox("Inbox", Icons.Filled.Inbox, "inbox"),
     Business("My Business", Icons.Filled.Store, "business"),

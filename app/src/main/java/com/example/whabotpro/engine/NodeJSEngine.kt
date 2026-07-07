@@ -11,15 +11,27 @@ import java.util.concurrent.Executors
 object NodeJSEngine {
 
     private val executor = Executors.newSingleThreadExecutor()
+    private var nativeLoaded = false
 
-    init {
-        System.loadLibrary("nodejs-bridge")
+    private fun loadNative() {
+        if (nativeLoaded) return
+        try {
+            System.loadLibrary("nodejs-bridge")
+            nativeLoaded = true
+        } catch (e: UnsatisfiedLinkError) {
+            Log.e("NodeJSEngine", "Failed to load nodejs-bridge native library: ${e.message}")
+        }
     }
 
     /**
      * Start the embedded Node.js process with the given script.
      */
     fun start(context: Context) {
+        loadNative()
+        if (!nativeLoaded) {
+            Log.e("NodeJSEngine", "Cannot start Node.js — native library not loaded")
+            return
+        }
         executor.execute {
             try {
                 val projectDir = NodeJSAssetsHelper.extractProject(context)

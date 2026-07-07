@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 import { default as makeWASocket, useMultiFileAuthState, DisconnectReason } from '@whiskeysockets/baileys';
 import mimeTypes from 'mime-types';
+import QRCode from 'qrcode';
 
 const projectDir = process.argv[2] || import.meta.dirname;
 const PORT = 3001;
@@ -15,6 +16,8 @@ let connectionState = 'disconnected';
 let pairingCode = null;
 let pairingPhone = null;
 let qrReceived = false;
+let currentQrCode = null;
+let currentQrDataUrl = null;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 10;
 let baileysStarting = false;
@@ -60,7 +63,15 @@ async function startBaileys() {
 
             if (qr) {
                 qrReceived = true;
-                log('QR received, ready for pairing-code request');
+                currentQrCode = qr;
+                connectionState = 'qr_ready';
+                // Generate QR code image as base64 data URL
+                try {
+                    currentQrDataUrl = await QRCode.toDataURL(qr, { width: 300, margin: 2 });
+                    log('QR code received and image generated');
+                } catch (e) {
+                    log(`QR image generation error: ${e.message}`);
+                }
             }
 
             if (receivedPendingNotifications) {
@@ -70,6 +81,8 @@ async function startBaileys() {
             if (connection === 'close') {
                 qrReceived = false;
                 pairingCode = null;
+                currentQrCode = null;
+                currentQrDataUrl = null;
                 const statusCode = (lastDisconnect?.error instanceof Boom)?.output?.statusCode;
                 const errorMsg = lastDisconnect?.error?.message || 'unknown';
                 const errorStack = lastDisconnect?.error?.stack || '';
@@ -101,6 +114,8 @@ async function startBaileys() {
                 reconnectAttempts = 0;
                 qrReceived = false;
                 pairingCode = null;
+                currentQrCode = null;
+                currentQrDataUrl = null;
                 connectionState = 'connected';
                 log('Connected successfully to WhatsApp');
             } else if (connection === 'connecting') {
@@ -221,6 +236,7 @@ const server = http.createServer(async (req, res) => {
             state: connectionState,
             pairingCode: pairingCode,
             pairingPhone: pairingPhone,
+            qrCode: currentQrDataUrl,
             readyForPairing: qrReceived || connectionState === 'connecting',
             hasCredentials: hasCredentials(),
             reconnectAttempts: reconnectAttempts
@@ -233,6 +249,17 @@ const server = http.createServer(async (req, res) => {
         const messages = messageQueue.splice(0, messageQueue.length);
         res.writeHead(200);
         res.end(JSON.stringify({ messages }));
+        return;
+    }
+
+    if (url.pathname === '/api/qr' && req.method === 'GET') {
+        if (currentQrDataUrl) {
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: true, qrCode: currentQrDataUrl }));
+        } else {
+            res.writeHead(200);
+            res.end(JSON.stringify({ success: false, error: 'No QR code available' }));
+        }
         return;
     }
 
@@ -348,8 +375,8 @@ function readBody(req) {
     });
 }
 
-// Start Baileys and HTTP server
-startBaileys();
-server.listen(PORT, '127.0.0.1', () => {
+// Start HTTP server first, then Baileys
+server.listen(PORT, '0.0.0.0', () => {
     log(`Embedded Baileys server running on http://127.0.0.1:${PORT}`);
+    startBaileys();
 });

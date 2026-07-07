@@ -70,7 +70,8 @@ class WhatsAppEngine(private val context: Context) {
         if (isRunning) return
         isRunning = true
         _state.value = WaState.CONNECTING
-        startPolling()
+        // Delay polling to give Node.js server time to start
+        handler.postDelayed({ startPolling() }, 3000)
         DataRepository.log("info", "Baileys engine started, server: $serverUrl")
     }
 
@@ -129,10 +130,12 @@ class WhatsAppEngine(private val context: Context) {
         client.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 handler.post {
-                    if (_state.value != WaState.CONNECTED && _state.value != WaState.CODE_READY) {
-                        _state.value = WaState.ERROR
+                    // Don't set ERROR on connection failures — the Node.js server
+                    // may still be starting up. Keep in CONNECTING state.
+                    if (_state.value != WaState.CONNECTED && _state.value != WaState.CODE_READY && _state.value != WaState.QR_READY) {
+                        _state.value = WaState.CONNECTING
                     }
-                    DataRepository.log("error", "Baileys server unreachable: ${e.message}")
+                    DataRepository.log("error", "Baileys server unreachable: ${e.javaClass.simpleName}: ${e.message}")
                 }
             }
 
@@ -143,18 +146,37 @@ class WhatsAppEngine(private val context: Context) {
                         val data = parseMap(body)
                         val stateStr = data["state"] as? String ?: "disconnected"
                         val code = data["pairingCode"] as? String
+                        val qr = data["qrCode"] as? String
                         val newState = when (stateStr) {
                             "connected" -> WaState.CONNECTED
                             "connecting" -> WaState.CONNECTING
+                            "qr_ready" -> WaState.QR_READY
                             "disconnected" -> if (_state.value == WaState.CODE_READY) WaState.CODE_READY else WaState.DISCONNECTED
                             else -> _state.value
+                        }
+
+                        // If the server has a QR code, show it
+                        if (!qr.isNullOrBlank() && _state.value != WaState.CODE_READY && _state.value != WaState.CONNECTED) {
+                            _qrCode.value = qr
+                            _state.value = WaState.QR_READY
+                        } else if (qr.isNullOrBlank() && _state.value == WaState.QR_READY) {
+                            // QR was cleared (expired), go back to connecting
+                            _qrCode.value = null
+                            _state.value = WaState.CONNECTING
                         }
 
                         // If the server already has a pairing code for our phone, show it
                         if (!code.isNullOrBlank()) {
                             _pairingCode.value = code
                             _state.value = WaState.CODE_READY
-                        } else if (newState != WaState.CODE_READY) {
+                        } else if (_state.value == WaState.CODE_READY && _pairingCode.value != null) {
+                            // Keep showing the pairing code until the server confirms
+                            // the phone was linked (connected). Don't let transient
+                            // "connecting"/"disconnected" status polls hide the code.
+                            if (newState == WaState.CONNECTED) {
+                                _state.value = newState
+                            }
+                        } else if (_state.value != WaState.QR_READY) {
                             _state.value = newState
                         }
 
@@ -227,8 +249,33 @@ class WhatsAppEngine(private val context: Context) {
     }
 
     fun refreshQr() {
-        // Baileys server does not expose QR; use pairing code instead
-        DataRepository.log("info", "QR refresh not supported with Baileys backend")
+        val url = "$serverUrl/api/qr"
+        val request = Request.Builder().url(url).get().build()
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                DataRepository.log("error", "QR fetch failed: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                handler.post {
+                    try {
+                        val data = parseMap(body)
+                        val qr = data["qrCode"] as? String
+                        if (!qr.isNullOrBlank()) {
+                            _qrCode.value = qr
+                            _state.value = WaState.QR_READY
+                        } else {
+                            _qrCode.value = null
+                            _state.value = WaState.CONNECTING
+                            DataRepository.log("info", "No QR code available yet")
+                        }
+                    } catch (e: Exception) {
+                        DataRepository.log("error", "QR parse error: ${e.message}")
+                    }
+                }
+            }
+        })
     }
 
     fun logout() {

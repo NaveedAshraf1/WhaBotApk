@@ -140,7 +140,7 @@ fun AddRawDataScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // Row 2: Process with AI (full width)
+            // Row 2: Save with AI (full width)
             Button(
                 onClick = {
                     if (rawText.isNotBlank()) {
@@ -162,7 +162,7 @@ fun AddRawDataScreen(
             ) {
                 Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Process with AI")
+                Text("Save with AI")
             }
 
             Spacer(Modifier.height(16.dp))
