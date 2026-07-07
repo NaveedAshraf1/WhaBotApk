@@ -115,15 +115,20 @@ class GroqClient {
     }
 
     private fun extractContent(json: String): String {
-        val root = JsonParser.parseString(json).asJsonObject
-        val choices = root.getAsJsonArray("choices")
-        if (choices == null || choices.size() == 0) return ""
-        return choices[0].asJsonObject
-            .getAsJsonObject("message")
-            ?.get("content")
-            ?.asString
-            ?.trim()
-            ?: ""
+        return try {
+            val root = JsonParser.parseString(json).asJsonObject
+            val choices = root.getAsJsonArray("choices")
+            if (choices == null || choices.size() == 0) return ""
+            choices[0].asJsonObject
+                .getAsJsonObject("message")
+                ?.get("content")
+                ?.asString
+                ?.trim()
+                ?: ""
+        } catch (e: Exception) {
+            android.util.Log.e("GroqClient", "JSON parse error: ${e.message}")
+            ""
+        }
     }
 
     companion object {

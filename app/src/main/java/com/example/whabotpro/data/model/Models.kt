@@ -127,10 +127,36 @@ data class LogEntry(
 @Entity(tableName = "settings")
 data class AppSettings(
     @PrimaryKey var id: String = "1",
+    // Provider 1: Groq (llama-3.1-8b-instant) - Fast, 6000 TPM limit, free tier
     var groqApiKey: String = BuildConfig.GROQ_API_KEY,
     var groqModel: String = "llama-3.1-8b-instant",
+    // Provider 2: Google Gemini (gemini-2.5-flash) - Large context, rate limits on free tier
     var geminiApiKey: String = BuildConfig.GEMINI_API_KEY,
     var geminiModel: String = "gemini-2.5-flash",
+    // Provider 3: Mistral AI (mistral-large-latest) - Good JSON support, free tier available
+    var mistralApiKey: String = "",
+    var mistralModel: String = "mistral-large-latest",
+    // Provider 4: Hugging Face Inference - Free tier, many models available
+    var huggingfaceApiKey: String = "",
+    var huggingfaceModel: String = "meta-llama/Llama-3.2-3B-Instruct",
+    // Provider 5: DeepSeek (deepseek-chat) - Chinese AI, free tier, good for general tasks
+    var deepseekApiKey: String = "",
+    var deepseekModel: String = "deepseek-chat",
+    // Provider 6: OpenRouter (various) - Aggregates multiple models, some free options
+    var openrouterApiKey: String = "",
+    var openrouterModel: String = "meta-llama/llama-3.2-3b-instruct:free",
+    // Provider 7: Cohere (command-r) - Requires credit card, good structured output
+    var cohereApiKey: String = "",
+    var cohereModel: String = "command-r",
+    // Provider 8: Together AI (meta-llama) - Requires credit card, fast inference
+    var togetherApiKey: String = "",
+    var togetherModel: String = "meta-llama/Llama-3.2-3B-Instruct-Turbo",
+    // Provider 9: Replicate (llama-3) - Requires credit card, serverless inference
+    var replicateApiKey: String = "",
+    var replicateModel: String = "meta/meta-llama-3-70b-instruct",
+    // Provider 10: Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
+    var anthropicApiKey: String = "",
+    var anthropicModel: String = "claude-3-5-haiku-20241022",
     var autoReplyEnabled: Boolean = true,
     var businessName: String = "My Business",
     var bulkDelayMs: Long = 2000,

@@ -22,8 +22,6 @@ fun BusinessScreen(vm: AppViewModel) {
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
     ) {
-        SectionHeader("My Business", "Brand, contact, and operating details the AI uses in replies")
-
         CardBox {
             val i = fields.value
             BizField("Brand Name", i.brandName) { fields.value = i.copy(brandName = it) }

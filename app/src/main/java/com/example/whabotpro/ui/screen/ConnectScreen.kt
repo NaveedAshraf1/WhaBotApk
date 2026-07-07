@@ -98,8 +98,6 @@ fun ConnectScreen(vm: AppViewModel) {
         var phoneNumber by remember { mutableStateOf("") }
         val pairingCode by vm.pairingCode.collectAsState()
 
-        SectionHeader("Connect WhatsApp", "Link via QR scan or phone number pairing code")
-
         Spacer(Modifier.height(24.dp))
 
         // Mode toggle (only when not connected)

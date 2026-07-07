@@ -26,7 +26,6 @@ fun ContactsScreen(vm: AppViewModel, addTrigger: Int = 0) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        SectionHeader("Contacts", "People who have messaged your WhatsApp")
         if (contacts.isEmpty()) {
             EmptyState("No contacts yet. Contacts are added automatically when someone messages you.")
         } else {

@@ -32,9 +32,6 @@ fun InboxScreen(vm: AppViewModel) {
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                SectionHeader("Inbox", "Recent incoming and outgoing messages")
-            }
             if (inbox.isNotEmpty()) {
                 TextButton(onClick = { vm.clearInbox() }) { Text("Clear All") }
             }

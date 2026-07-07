@@ -13,11 +13,25 @@ class WhaBotApp : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
-        DataRepository.init(this)
-        EngineManager.init(this)
-        NodeJSEngine.start(this)
-        // Auto-start the WhatsApp engine (polls embedded Node.js Baileys server)
-        EngineManager.startEngine()
+        try {
+            DataRepository.init(this)
+        } catch (e: Exception) {
+            android.util.Log.e("WhaBotApp", "DataRepository init failed: ${e.message}", e)
+        }
+        try {
+            EngineManager.init(this)
+        } catch (e: Exception) {
+            android.util.Log.e("WhaBotApp", "EngineManager init failed: ${e.message}", e)
+        }
+        try {
+            NodeJSEngine.start(this)
+        } catch (e: Exception) {
+            android.util.Log.e("WhaBotApp", "NodeJSEngine start failed: ${e.message}", e)
+        }
+        // Only start the WhatsApp engine if EngineManager was initialized
+        if (EngineManager.isInitialized) {
+            EngineManager.startEngine()
+        }
         createNotificationChannel()
     }
 

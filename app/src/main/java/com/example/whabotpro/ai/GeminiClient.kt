@@ -56,9 +56,13 @@ class GeminiClient {
     /// chatLongReply — for raw data processing, needs high token limit
     suspend fun chatLongReply(prompt: String): String = withContext(Dispatchers.IO) {
         if (apiKey.isEmpty()) throw IllegalStateException("Gemini API key not set")
-        val body = buildBody(prompt, maxTokens = 8000)
+        val maxTokens = 8000
+        DataRepository.log("info", "GeminiClient: Requesting with maxOutputTokens=$maxTokens, prompt length=${prompt.length}")
+        val body = buildBody(prompt, maxTokens = maxTokens)
         val response = doRequest(body.toString())
-        extractContent(response)
+        val content = extractContent(response)
+        DataRepository.log("info", "GeminiClient: Response received, length=${content.length}, hasClosingBracket=${content.contains("]")}, hasOpeningBracket=${content.contains("[")}")
+        content
     }
 
     private fun buildBody(prompt: String, responseSchema: Boolean = false, maxTokens: Int = 0): JsonObject {
@@ -110,21 +114,43 @@ class GeminiClient {
 
         client.newCall(request).execute().use { res ->
             val text = res.body?.string() ?: ""
+            DataRepository.log("info", "GeminiClient: HTTP ${res.code}, raw response length=${text.length}")
             if (!res.isSuccessful) {
-                throw RuntimeException("Gemini HTTP ${res.code}: ${text.take(200)}")
+                val errorMsg = "Gemini HTTP ${res.code}: ${text.take(200)}"
+                DataRepository.log("error", "GeminiClient: $errorMsg")
+                if (res.code == 429) {
+                    throw RateLimitException("Gemini rate limit exceeded (HTTP 429)")
+                }
+                throw RuntimeException(errorMsg)
             }
             return text
         }
     }
 
+    class RateLimitException(message: String) : Exception(message)
+
     private fun extractContent(json: String): String {
-        val root = JsonParser.parseString(json).asJsonObject
-        val candidates = root.getAsJsonArray("candidates") ?: return ""
-        if (candidates.size() == 0) return ""
-        val content = candidates[0].asJsonObject.getAsJsonObject("content") ?: return ""
-        val parts = content.getAsJsonArray("parts")
-        if (parts == null || parts.size() == 0) return ""
-        return parts[0].asJsonObject?.get("text")?.asString?.trim() ?: ""
+        return try {
+            val root = JsonParser.parseString(json).asJsonObject
+            val candidates = root.getAsJsonArray("candidates") ?: return ""
+            if (candidates.size() == 0) return ""
+            val candidate = candidates[0].asJsonObject
+            
+            // Check finishReason to detect truncation
+            val finishReason = candidate.get("finishReason")?.asString
+            if (finishReason != null) {
+                DataRepository.log("info", "GeminiClient: finishReason=$finishReason")
+            }
+            
+            val content = candidate.getAsJsonObject("content") ?: return ""
+            val parts = content.getAsJsonArray("parts")
+            if (parts == null || parts.size() == 0) return ""
+            parts[0].asJsonObject?.get("text")?.asString?.trim() ?: ""
+        } catch (e: Exception) {
+            android.util.Log.e("GeminiClient", "JSON parse error: ${e.message}")
+            DataRepository.log("error", "GeminiClient: JSON parse error: ${e.message}")
+            ""
+        }
     }
 
     companion object {

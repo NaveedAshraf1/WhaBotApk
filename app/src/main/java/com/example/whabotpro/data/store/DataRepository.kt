@@ -16,6 +16,9 @@ object DataRepository {
 
     private lateinit var db: AppDatabase
 
+    /** True once init() has completed successfully. */
+    val isInitialized: Boolean get() = ::db.isInitialized
+
     // In-memory state flows for Compose reactivity (mirrored from Room)
     private val _businessInfo = MutableStateFlow(BusinessInfo())
     val businessInfo: StateFlow<BusinessInfo> = _businessInfo
@@ -212,7 +215,13 @@ object DataRepository {
     // ── Logs ──
     fun log(level: String, message: String) {
         val entry = LogEntry(level = level, message = message)
-        db.logDao().insert(entry)
+        if (isInitialized) {
+            try {
+                db.logDao().insert(entry)
+            } catch (e: Exception) {
+                android.util.Log.e("DataRepository", "log() DB insert failed: ${e.message}")
+            }
+        }
         _logs.value = (listOf(entry) + _logs.value).take(500)
     }
 

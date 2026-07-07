@@ -22,8 +22,7 @@ fun LogsScreen(vm: AppViewModel) {
     val dateFormat = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.weight(1f)) { SectionHeader("Logs", "System and debug logs") }
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             if (logs.isNotEmpty()) {
                 TextButton(onClick = { vm.clearLogs() }) { Text("Clear") }
             }

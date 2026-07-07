@@ -25,8 +25,6 @@ fun BulkSendScreen(vm: AppViewModel) {
             .verticalScroll(rememberScrollState())
             .padding(16.dp)
     ) {
-        SectionHeader("Bulk Send", "Send the same message to multiple numbers (one per line)")
-
         CardBox {
             OutlinedTextField(
                 value = numbers,

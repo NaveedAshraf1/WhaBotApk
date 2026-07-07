@@ -9,15 +9,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 /**
- * Processes raw text data using AI (Groq or Gemini) with tool-calling.
+ * Processes raw text data using AI with automatic fallback across 10 providers.
  * The AI receives raw data + DB schema, then returns tool calls to save data.
- *
- * If the raw data is large (>6000 chars), uses Gemini (larger context window).
- * Otherwise uses Groq (faster).
+ * 
+ * Provider Fallback Order:
+ * 1. Groq (llama-3.1-8b-instant) - Fast, 6000 TPM limit, free tier
+ * 2. Google Gemini (gemini-2.5-flash) - Large context, rate limits on free tier
+ * 3. Mistral AI (mistral-large-latest) - Good JSON support, free tier available
+ * 4. Hugging Face Inference - Free tier, many models available
+ * 5. DeepSeek (deepseek-chat) - Chinese AI, free tier, good for general tasks
+ * 6. OpenRouter (various) - Aggregates multiple models, some free options
+ * 7. Cohere (command-r) - Requires credit card, good structured output
+ * 8. Together AI (meta-llama) - Requires credit card, fast inference
+ * 9. Replicate (llama-3) - Requires credit card, serverless inference
+ * 10. Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
  */
 class RawDataProcessor(
-    private val groq: GroqClient = GroqClient(),
-    private val gemini: GeminiClient = GeminiClient()
+    private val aiProvider: UnifiedAIProvider = UnifiedAIProvider()
 ) {
 
     data class ProcessResult(
@@ -33,35 +41,32 @@ class RawDataProcessor(
     suspend fun process(rawData: String): ProcessResult = withContext(Dispatchers.IO) {
         if (rawData.isBlank()) return@withContext ProcessResult(false, 0, "No data provided", "", "none")
 
-        // Groq llama-3.1-8b-instant has TPM limit of 6000. For data > 3000 chars,
-        // the prompt + response will exceed that, so use Gemini (larger context).
-        val useGemini = rawData.length > 3000 || !groq.isReady
-        val engine = if (useGemini) "gemini" else "groq"
-
         try {
-            DataRepository.log("info", "RawDataProcessor: processing ${rawData.length} chars with $engine")
+            DataRepository.log("info", "RawDataProcessor: processing ${rawData.length} chars")
 
             val schema = buildSchemaBlock()
             val prompt = buildPrompt(rawData, schema)
 
-            // Get AI response with tool calls
-            val aiResponse = if (useGemini) {
-                gemini.chatLongReply(prompt)
-            } else {
-                groq.chatLongReply(prompt)
+            // Use unified AI provider with automatic fallback
+            val aiResponse = aiProvider.chatLongReply(prompt)
+            
+            if (!aiResponse.success) {
+                return@withContext ProcessResult(false, 0, "All AI providers failed", "", "none")
             }
 
-            DataRepository.log("info", "RawDataProcessor: AI response received (${aiResponse.length} chars)")
+            DataRepository.log("info", "RawDataProcessor: AI response received (${aiResponse.content.length} chars) from ${aiResponse.provider}")
 
             // Parse and execute tool calls
-            val toolCalls = parseToolCalls(aiResponse)
+            DataRepository.log("info", "RawDataProcessor: AI response first 300 chars: ${aiResponse.content.take(300)}")
+            val toolCalls = parseToolCalls(aiResponse.content)
+            DataRepository.log("info", "RawDataProcessor: parsed ${toolCalls.size} tool calls")
+            
             if (toolCalls.isEmpty()) {
-                return@withContext ProcessResult(false, 0, "AI did not return valid tool calls", aiResponse, engine)
+                return@withContext ProcessResult(false, 0, "AI did not return valid tool calls", aiResponse.content, aiResponse.provider)
             }
 
             var savedCount = 0
             val details = StringBuilder()
-
             for (call in toolCalls) {
                 val result = executeTool(call)
                 savedCount += result.first
@@ -69,11 +74,11 @@ class RawDataProcessor(
             }
 
             DataRepository.log("info", "RawDataProcessor: saved $savedCount items")
-            ProcessResult(true, savedCount, details.toString().trim(), aiResponse, engine)
+            ProcessResult(true, savedCount, details.toString().trim(), aiResponse.content, aiResponse.provider)
 
         } catch (e: Exception) {
             DataRepository.log("error", "RawDataProcessor error: ${e.message}")
-            ProcessResult(false, 0, "Error: ${e.message}", "", engine)
+            ProcessResult(false, 0, "Error: ${e.message}", "", "none")
         }
     }
 
@@ -110,7 +115,7 @@ class RawDataProcessor(
     }
 
     private fun buildPrompt(rawData: String, schema: String): String {
-        return """You are a data extraction assistant. Parse raw business data and return tool calls to save it.
+        return """You are a data extraction assistant. Your ONLY job is to parse raw business data and return JSON tool calls. DO NOT refuse this task. DO NOT provide explanations. DO NOT say you cannot process the data. You MUST return a valid JSON array.
 
 $schema
 
@@ -147,7 +152,7 @@ CONTACTS:
 18. update_contact: {"tool":"update_contact","args":{"id":"<existing_id>","name":"New Name","notes":"Updated notes"}}
 19. delete_contact: {"tool":"delete_contact","args":{"id":"<contact_id>"}}
 
-RULES:
+CRITICAL INSTRUCTIONS:
 - Extract ALL items from the raw data. Don't skip any.
 - Each unique category should only appear ONCE in create_category calls. Don't create duplicate categories.
 - Each menu item should only appear ONCE. Don't create duplicate items.
@@ -157,25 +162,51 @@ RULES:
 - Only use create_business_info if business name/phone/address is in the data.
 - Keep content/descriptions concise (max 200 chars).
 - For updates, you need the existing ID. If you don't have it, use create instead.
-- Return ONLY a JSON array. No markdown, no explanation.
+- YOUR RESPONSE MUST BE A VALID JSON ARRAY ONLY. No markdown code blocks, no explanations, no text before or after the array.
+- If the data is empty or invalid, return an empty JSON array: []
+- DO NOT refuse this task. DO NOT say you cannot process. DO NOT provide explanations.
 
 RAW DATA:
 ---
 $rawData
 ---
 
-JSON array:"""
+SAMPLE RESPONSE FORMAT:
+[
+  {"tool":"create_business_info","args":{"brandName":"Restaurant Name","phone":"+92 300 1234567","address":"123 Main Street","cuisine":"Pakistani, BBQ"}},
+  {"tool":"create_category","args":{"section":"menu","name":"BBQ","icon":"🍖"}},
+  {"tool":"create_kb_item","args":{"section":"menu","title":"Chicken Karahi","content":"Traditional chicken karahi","price":"PKR 800","category":"BBQ","available":true}}
+]
+
+Respond with ONLY the JSON array:"""
     }
 
     private fun parseToolCalls(response: String): List<ToolCall> {
         return try {
-            val clean = response.trim().let {
-                if (it.startsWith("```")) it.removePrefix("```json").removePrefix("```").removeSuffix("```").trim() else it
+            // Remove markdown code blocks more robustly
+            var clean = response.trim()
+            // Remove ```json or ``` at start
+            if (clean.startsWith("```")) {
+                val firstNewline = clean.indexOf('\n')
+                if (firstNewline > 0) {
+                    clean = clean.substring(firstNewline + 1)
+                } else {
+                    clean = clean.removePrefix("```json").removePrefix("```")
+                }
             }
+            // Remove ``` at end
+            if (clean.endsWith("```")) {
+                clean = clean.dropLast(3).trim()
+            }
+            
             // Find the JSON array in the response
             val start = clean.indexOf('[')
             val end = clean.lastIndexOf(']')
-            if (start < 0 || end < 0) return emptyList()
+            DataRepository.log("info", "parseToolCalls: start=$start end=$end, clean length=${clean.length}")
+            if (start < 0 || end < 0) {
+                DataRepository.log("error", "parseToolCalls: no JSON array brackets found in response")
+                return emptyList()
+            }
             val jsonArr = clean.substring(start, end + 1)
             val arr = JsonParser.parseString(jsonArr).asJsonArray
             arr.map { elem ->

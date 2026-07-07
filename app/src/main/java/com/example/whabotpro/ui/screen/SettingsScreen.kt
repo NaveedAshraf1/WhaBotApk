@@ -32,8 +32,6 @@ fun SettingsScreen(vm: AppViewModel, context: android.content.Context) {
     var saved by remember { mutableStateOf(false) }
 
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
-        SectionHeader("Settings", "Configure AI, server, and bot behavior")
-
         // Service control
         CardBox {
             Text("Service", style = MaterialTheme.typography.titleMedium)

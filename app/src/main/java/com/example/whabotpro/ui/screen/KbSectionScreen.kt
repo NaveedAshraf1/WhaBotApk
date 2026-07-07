@@ -33,8 +33,6 @@ fun KbSectionScreen(vm: AppViewModel, section: String, title: String, subtitle: 
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        SectionHeader(title, subtitle)
-
         if (items.isEmpty()) {
             EmptyState("No items yet. Tap + in the toolbar to create one.")
         } else {

@@ -93,7 +93,18 @@ fun WhaBotApp(context: android.content.Context) {
         Scaffold(
             topBar = {
                 TopAppBar(
-                    title = { Text(currentScreen.title) },
+                    title = {
+                        Column {
+                            Text(currentScreen.title, fontWeight = FontWeight.SemiBold)
+                            if (currentScreen.subtitle.isNotEmpty()) {
+                                Text(
+                                    currentScreen.subtitle,
+                                    fontSize = 12.sp,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
                     navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
                             Icon(Icons.Filled.Menu, contentDescription = "Menu")
@@ -169,6 +180,7 @@ fun WhaBotApp(context: android.content.Context) {
                 composable(Screen.Reservations.route) { KbSectionScreen(vm, "reservations", "Reservations", "Reservation policies and info", addTrigger) }
                 composable(Screen.FAQs.route) { KbSectionScreen(vm, "faqs", "FAQs", "Frequently asked questions", addTrigger) }
                 composable(Screen.Policies.route) { KbSectionScreen(vm, "policies", "Policies", "Business policies", addTrigger) }
+                composable(Screen.Contacts.route) { ContactsScreen(vm, addTrigger) }
                 composable(Screen.Rules.route) { RulesScreen(vm, addTrigger) }
                 composable(Screen.TestChat.route) { TestChatScreen(vm) }
                 composable(Screen.Logs.route) { LogsScreen(vm) }

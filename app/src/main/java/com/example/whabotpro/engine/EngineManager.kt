@@ -30,6 +30,9 @@ object EngineManager {
     private val geminiClient = GeminiClient()
     private val agent = Agent(groqClient, geminiClient)
 
+    /** True once init() has completed successfully. */
+    val isInitialized: Boolean get() = ::waEngine.isInitialized
+
     private val aiReady: Boolean get() = groqClient.isReady || geminiClient.isReady
     private val aiModel: String get() = when {
         groqClient.isReady -> groqClient.model
@@ -53,12 +56,12 @@ object EngineManager {
         }
     }
 
-    val waState: StateFlow<WaState> get() = waEngine.state
-    val qrCode: StateFlow<String?> get() = waEngine.qrCode
-    val pairingCode: StateFlow<String?> get() = waEngine.pairingCode
-    val pairingPhoneNumber: StateFlow<String> get() = waEngine.pairingPhoneNumber
-    val connectedUser: StateFlow<String> get() = waEngine.connectedUser
-    val isRequestingPairing: StateFlow<Boolean> get() = waEngine.isRequestingPairing
+    val waState: StateFlow<WaState> get() = if (isInitialized) waEngine.state else MutableStateFlow(WaState.DISCONNECTED)
+    val qrCode: StateFlow<String?> get() = if (isInitialized) waEngine.qrCode else MutableStateFlow(null)
+    val pairingCode: StateFlow<String?> get() = if (isInitialized) waEngine.pairingCode else MutableStateFlow(null)
+    val pairingPhoneNumber: StateFlow<String> get() = if (isInitialized) waEngine.pairingPhoneNumber else MutableStateFlow("")
+    val connectedUser: StateFlow<String> get() = if (isInitialized) waEngine.connectedUser else MutableStateFlow("")
+    val isRequestingPairing: StateFlow<Boolean> get() = if (isInitialized) waEngine.isRequestingPairing else MutableStateFlow(false)
 
     // The embedded Node.js server is always running when the app is alive
     private val _serverRunning = MutableStateFlow(true)
@@ -68,18 +71,25 @@ object EngineManager {
     val status: StateFlow<StatusSnapshot> = _status
 
     fun startEngine() {
+        if (!isInitialized) return
         waEngine.start()
     }
 
     fun startPairingCode(phoneNumber: String) {
+        if (!isInitialized) return
         waEngine.startPairingCode(phoneNumber)
     }
 
     fun stopEngine() {
+        if (!isInitialized) return
         waEngine.stop()
     }
 
     fun sendText(number: String, message: String, callback: ((Boolean) -> Unit)? = null) {
+        if (!isInitialized) {
+            callback?.let { it(false) }
+            return
+        }
         waEngine.sendTextMessage(number, message, callback)
         DataRepository.logInbox(InboxMessage(
             from = number, contactName = number, phoneNumber = number,
@@ -88,14 +98,17 @@ object EngineManager {
     }
 
     fun logout() {
+        if (!isInitialized) return
         waEngine.logout()
     }
 
     fun refreshQr() {
+        if (!isInitialized) return
         waEngine.refreshQr()
     }
 
     fun refreshPairingCode(phoneNumber: String) {
+        if (!isInitialized) return
         waEngine.refreshPairingCode(phoneNumber)
     }
 

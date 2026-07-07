@@ -33,8 +33,6 @@ fun OrdersScreen(vm: AppViewModel, addTrigger: Int = 0) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        SectionHeader("Orders", "Manage delivery, takeaway, and dine-in orders")
-
         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
             val statuses = listOf("", "pending", "preparing", "ready", "delivered", "cancelled")
             statuses.forEach { s ->

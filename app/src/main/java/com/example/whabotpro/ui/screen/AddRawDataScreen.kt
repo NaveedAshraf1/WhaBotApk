@@ -23,6 +23,31 @@ import com.example.whabotpro.ui.component.CardBox
 import com.example.whabotpro.ui.viewmodel.AppViewModel
 import kotlinx.coroutines.launch
 
+private fun parseSectionCounts(details: String): Map<String, Int> {
+    val counts = mutableMapOf<String, Int>()
+    val lines = details.lines()
+    
+    for (line in lines) {
+        when {
+            line.contains("category") -> counts["Categories"] = (counts["Categories"] ?: 0) + 1
+            line.contains("(menu)") -> counts["Menu Items"] = (counts["Menu Items"] ?: 0) + 1
+            line.contains("(promotions)") -> counts["Deals"] = (counts["Deals"] ?: 0) + 1
+            line.contains("(services)") -> counts["Services"] = (counts["Services"] ?: 0) + 1
+            line.contains("(faqs)") -> counts["FAQs"] = (counts["FAQs"] ?: 0) + 1
+            line.contains("(policies)") -> counts["Policies"] = (counts["Policies"] ?: 0) + 1
+            line.contains("(events)") -> counts["Events"] = (counts["Events"] ?: 0) + 1
+            line.contains("(reservations)") -> counts["Reservations"] = (counts["Reservations"] ?: 0) + 1
+            line.contains("(delivery_zones)") -> counts["Delivery Zones"] = (counts["Delivery Zones"] ?: 0) + 1
+            line.contains("Business info") -> counts["Business Info"] = (counts["Business Info"] ?: 0) + 1
+            line.contains("rule") -> counts["Rules"] = (counts["Rules"] ?: 0) + 1
+            line.contains("contact") -> counts["Contacts"] = (counts["Contacts"] ?: 0) + 1
+            line.contains("order") -> counts["Orders"] = (counts["Orders"] ?: 0) + 1
+        }
+    }
+    
+    return counts
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddRawDataScreen(
@@ -34,10 +59,15 @@ fun AddRawDataScreen(
     var syncing by remember { mutableStateOf(false) }
     var statusText by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<RawDataProcessor.ProcessResult?>(null) }
+    var showAiResponseDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val processor = remember { RawDataProcessor() }
     val firebaseSync = remember { FirebaseRawDataSync() }
     val context = LocalContext.current
+    
+    // Character limit to avoid rate limits and token issues
+    val maxChars = 10000
+    val isOverLimit = rawText.length > maxChars
 
     Scaffold(
         topBar = {
@@ -67,7 +97,12 @@ fun AddRawDataScreen(
 
             OutlinedTextField(
                 value = rawText,
-                onValueChange = { rawText = it; result = null },
+                onValueChange = { 
+                    if (it.length <= maxChars) {
+                        rawText = it
+                        result = null
+                    }
+                },
                 label = { Text("Raw Data") },
                 placeholder = { Text("Paste menu items, business info, FAQs, policies, etc.\n\nExample:\nRestaurant Name: My Restaurant\nPhone: +92 300 1234567\n\nMenu:\n1. Chicken Karahi - PKR 800 - BBQ\n2. Biryani - PKR 500 - Rice") },
                 modifier = Modifier
@@ -75,8 +110,24 @@ fun AddRawDataScreen(
                     .height(260.dp),
                 minLines = 10,
                 maxLines = 20,
-                enabled = !processing && !syncing
+                enabled = !processing && !syncing,
+                supportingText = {
+                    Text(
+                        "${rawText.length} / $maxChars characters",
+                        color = if (isOverLimit) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                isError = isOverLimit
             )
+
+            if (isOverLimit) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Data exceeds $maxChars character limit. Please reduce the content.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
 
             Spacer(Modifier.height(12.dp))
 
@@ -150,15 +201,16 @@ fun AddRawDataScreen(
                         scope.launch {
                             result = processor.process(rawText)
                             processing = false
-                            // If we loaded from Firebase, mark docs as processed
                             if (result?.success == true) {
                                 statusText = "Saved ${result!!.savedCount} items"
+                            } else {
+                                statusText = "Processing failed"
                             }
                         }
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = !processing && !syncing && rawText.isNotBlank()
+                enabled = !processing && !syncing && rawText.isNotBlank() && !isOverLimit
             ) {
                 Icon(Icons.Filled.AutoFixHigh, contentDescription = null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
@@ -167,8 +219,8 @@ fun AddRawDataScreen(
 
             Spacer(Modifier.height(16.dp))
 
-            // Status / Progress
-            if (syncing || processing) {
+            // Status / Progress (inline card)
+            if (syncing) {
                 CardBox {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -176,7 +228,7 @@ fun AddRawDataScreen(
                     ) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                         Column {
-                            Text(statusText.ifEmpty { if (processing) "AI is processing..." else "Syncing..." })
+                            Text(statusText.ifEmpty { "Syncing..." })
                             Text(
                                 "Data size: ${rawText.length} chars",
                                 style = MaterialTheme.typography.bodySmall,
@@ -207,19 +259,49 @@ fun AddRawDataScreen(
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            if (res.success) "Saved ${res.savedCount} items" else "Processing failed",
+                            if (res.success) "Data Imported Successfully" else "Processing Failed",
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
                         Spacer(Modifier.height(4.dp))
                         Text("Engine: ${res.engineUsed}", style = MaterialTheme.typography.bodySmall)
-                        if (res.details.isNotBlank()) {
+                        
+                        if (res.success) {
+                            Spacer(Modifier.height(12.dp))
+                            // Parse details to show section breakdown
+                            val sectionCounts = parseSectionCounts(res.details)
+                            if (sectionCounts.isNotEmpty()) {
+                                Text("Items Added:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
+                                Spacer(Modifier.height(8.dp))
+                                sectionCounts.forEach { (section, count) ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Text(section, style = MaterialTheme.typography.bodySmall)
+                                        Text("$count", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Text("Total: ${res.savedCount} items", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        } else {
                             Spacer(Modifier.height(8.dp))
-                            Text(res.details, style = MaterialTheme.typography.bodySmall)
-                        }
-                        if (!res.success && res.aiResponse.isNotBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text("AI Response: ${res.aiResponse.take(500)}", style = MaterialTheme.typography.bodySmall)
+                            Text(res.details, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                            if (res.aiResponse.isNotBlank()) {
+                                Spacer(Modifier.height(8.dp))
+                                Text("AI Response:", fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodySmall)
+                                Spacer(Modifier.height(4.dp))
+                                Text(res.aiResponse.take(800), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onErrorContainer)
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedButton(
+                                    onClick = { showAiResponseDialog = true },
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("View Full AI Response")
+                                }
+                            }
                         }
                     }
                 }
@@ -237,5 +319,71 @@ fun AddRawDataScreen(
 
             Spacer(Modifier.height(24.dp))
         }
+    }
+
+    // Progress dialog overlay when AI is processing
+    if (processing) {
+        AlertDialog(
+            onDismissRequest = { },
+            confirmButton = { },
+            title = { Text("Processing with AI") },
+            text = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(32.dp))
+                    Column {
+                        Text(statusText.ifEmpty { "AI is parsing your data..." })
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Data size: ${rawText.length} chars",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        )
+    }
+
+    // AI Response dialog for debugging failures
+    if (showAiResponseDialog && result != null) {
+        AlertDialog(
+            onDismissRequest = { showAiResponseDialog = false },
+            title = { Text("Full AI Response") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 400.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Text(
+                        result!!.aiResponse,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        val clip = android.content.ClipData.newPlainText("AI Response", result!!.aiResponse)
+                        clipboard.setPrimaryClip(clip)
+                        showAiResponseDialog = false
+                    }
+                ) {
+                    Text("Copy")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAiResponseDialog = false }) {
+                    Text("Close")
+                }
+            }
+        )
     }
 }

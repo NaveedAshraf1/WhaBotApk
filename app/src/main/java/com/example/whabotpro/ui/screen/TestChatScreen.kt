@@ -32,7 +32,6 @@ fun TestChatScreen(vm: AppViewModel) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        SectionHeader("Test Chat", "Test the AI agent without sending real WhatsApp messages")
         if (settings.groqApiKey.isEmpty() && settings.geminiApiKey.isEmpty()) {
             Text("Set Groq or Gemini API key in Settings first.", color = MaterialTheme.colorScheme.error, fontSize = 13.sp)
             Spacer(Modifier.height(8.dp))

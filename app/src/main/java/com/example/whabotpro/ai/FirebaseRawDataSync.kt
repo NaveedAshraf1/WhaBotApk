@@ -15,8 +15,13 @@ import kotlinx.coroutines.tasks.await
  */
 class FirebaseRawDataSync {
 
-    private val db = FirebaseFirestore.getInstance()
-    private val collection = db.collection("raw_data")
+    private val db = try {
+        FirebaseFirestore.getInstance()
+    } catch (e: Exception) {
+        android.util.Log.e("FirebaseRawDataSync", "Firebase not initialized: ${e.message}")
+        null
+    }
+    private val collection get() = db?.collection("raw_data")
 
     data class RawDataDoc(
         val id: String,
@@ -27,7 +32,8 @@ class FirebaseRawDataSync {
 
     /** Fetch unprocessed raw data documents from Firestore. */
     suspend fun fetchPending(): List<RawDataDoc> = try {
-        val snapshot = collection
+        val col = collection ?: return emptyList()
+        val snapshot = col
             .whereEqualTo("processed", false)
             .get()
             .await()
@@ -48,7 +54,8 @@ class FirebaseRawDataSync {
 
     /** Fetch ALL raw data documents (including processed). */
     suspend fun fetchAll(): List<RawDataDoc> = try {
-        val snapshot = collection
+        val col = collection ?: return emptyList()
+        val snapshot = col
             .get()
             .await()
 
@@ -69,7 +76,8 @@ class FirebaseRawDataSync {
     /** Mark a document as processed. */
     suspend fun markProcessed(docId: String, savedCount: Int) {
         try {
-            collection.document(docId)
+            val col = collection ?: return
+            col.document(docId)
                 .update(
                     mapOf(
                         "processed" to true,
@@ -85,7 +93,8 @@ class FirebaseRawDataSync {
 
     /** Check if Firestore is reachable. */
     suspend fun isAvailable(): Boolean = try {
-        collection.limit(1).get().await()
+        val col = collection ?: return false
+        col.limit(1).get().await()
         true
     } catch (e: Exception) {
         false

@@ -22,12 +22,9 @@ import com.example.whabotpro.ui.viewmodel.AppViewModel
 @Composable
 fun DashboardScreen(vm: AppViewModel, navTo: (Screen) -> Unit) {
     val waState by vm.waState.collectAsState()
-    val connectedUser by vm.connectedUser.collectAsState()
     val settings by vm.settings.collectAsState()
     val inbox by vm.inbox.collectAsState()
-    val orders by vm.orders.collectAsState()
-    val contacts by vm.contacts.collectAsState()
-    val isRequestingPairing by vm.isRequestingPairing.collectAsState()
+    val businessInfo by vm.businessInfo.collectAsState()
 
     val aiConfigured = settings.groqApiKey.isNotEmpty() || settings.geminiApiKey.isNotEmpty()
     val aiLabel = when {
@@ -35,7 +32,6 @@ fun DashboardScreen(vm: AppViewModel, navTo: (Screen) -> Unit) {
         settings.geminiApiKey.isNotEmpty() -> settings.geminiModel
         else -> "Not configured"
     }
-    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -43,8 +39,6 @@ fun DashboardScreen(vm: AppViewModel, navTo: (Screen) -> Unit) {
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        SectionHeader("Dashboard", "Overview of your WhatsApp AI bot")
-
         // Status cards
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatusCard(
@@ -89,36 +83,32 @@ fun DashboardScreen(vm: AppViewModel, navTo: (Screen) -> Unit) {
 
         Spacer(Modifier.height(24.dp))
 
-        // Quick actions
-        Text("Quick Actions", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
-        Spacer(Modifier.height(12.dp))
-
-        // Add Raw Data — prominent full-width button
-        OutlinedCard(
-            onClick = { navTo(Screen.RawData) },
-            modifier = Modifier.fillMaxWidth(),
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-            colors = CardDefaults.outlinedCardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Filled.AutoFixHigh, contentDescription = null)
-                Spacer(Modifier.width(12.dp))
-                Column {
-                    Text("Add Raw Data", fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        "Paste restaurant data — AI parses & saves to database",
-                        fontSize = 12.sp,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-                    )
+        // Business Info card
+        if (businessInfo.brandName.isNotBlank()) {
+            Text("Business", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(12.dp))
+            CardBox {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(businessInfo.brandName, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    if (businessInfo.tagline.isNotBlank()) {
+                        Text(businessInfo.tagline, fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (businessInfo.category.isNotBlank()) {
+                        Text(businessInfo.category, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (businessInfo.phone.isNotBlank()) {
+                        Text(businessInfo.phone, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (businessInfo.address.isNotBlank()) {
+                        Text(businessInfo.address, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
+            Spacer(Modifier.height(24.dp))
         }
+
+        // Quick actions
+        Text("Quick Actions", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
         Spacer(Modifier.height(12.dp))
 
         QuickActionGrid(navTo, waState)
@@ -142,7 +132,7 @@ private fun StatusCard(modifier: Modifier, icon: androidx.compose.ui.graphics.ve
 @Composable
 private fun QuickActionGrid(navTo: (Screen) -> Unit, waState: WaState) {
     val actions = listOf(
-        Triple(Screen.Menu, "Add Data", Icons.Filled.AutoFixHigh),
+        Triple(Screen.RawData, "Add Raw Data", Icons.Filled.AutoFixHigh),
         Triple(Screen.Connect, "Connect WhatsApp", Icons.Filled.QrCodeScanner),
         Triple(Screen.TestChat, "Test AI Chat", Icons.Filled.Science)
     )

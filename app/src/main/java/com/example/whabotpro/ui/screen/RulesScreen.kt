@@ -30,7 +30,6 @@ fun RulesScreen(vm: AppViewModel, addTrigger: Int = 0) {
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        SectionHeader("Rules", "Custom rules the AI must follow when replying")
         if (rules.isEmpty()) {
             EmptyState("No rules yet. Add rules to guide the AI's behavior.")
         } else {
