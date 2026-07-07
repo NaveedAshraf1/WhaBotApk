@@ -56,6 +56,7 @@ fun WhaBotApp(context: android.content.Context) {
     var addTrigger by remember { mutableIntStateOf(0) }
 
     val navTo: (Screen) -> Unit = { screen ->
+        addTrigger = 0  // reset so the new screen doesn't auto-open the editor
         navController.navigate(screen.route) { launchSingleTop = true }
         scope.launch { drawerState.close() }
     }
@@ -94,12 +95,13 @@ fun WhaBotApp(context: android.content.Context) {
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
+                        Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                             Text(currentScreen.title, fontWeight = FontWeight.SemiBold)
                             if (currentScreen.subtitle.isNotEmpty()) {
                                 Text(
                                     currentScreen.subtitle,
                                     fontSize = 12.sp,
+                                    lineHeight = 14.sp,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }

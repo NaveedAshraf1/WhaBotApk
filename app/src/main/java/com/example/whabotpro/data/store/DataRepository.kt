@@ -117,9 +117,10 @@ object DataRepository {
         _categories.value.filter { it.section == section }
 
     fun addCategory(cat: Category) {
-        // Dedup: skip if category with same name+section already exists
-        val existing = db.categoryDao().findByNameAndSection(cat.section, cat.name)
+        // Dedup: skip if category with same name+section already exists (case-insensitive)
+        val existing = db.categoryDao().findByNameAndSection(cat.section, cat.name.trim())
         if (existing == null) {
+            cat.name = cat.name.trim()
             db.categoryDao().upsert(cat)
             _categories.value = _categories.value + cat
         }

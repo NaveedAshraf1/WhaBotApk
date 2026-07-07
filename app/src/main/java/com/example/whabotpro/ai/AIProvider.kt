@@ -21,12 +21,11 @@ import java.util.concurrent.TimeUnit
  * 2. Google Gemini (gemini-2.5-flash) - Large context, rate limits on free tier
  * 3. Mistral AI (mistral-large-latest) - Good JSON support, free tier available
  * 4. Hugging Face Inference - Free tier, many models available
- * 5. DeepSeek (deepseek-chat) - Chinese AI, free tier, good for general tasks
- * 6. OpenRouter (various) - Aggregates multiple models, some free options
- * 7. Cohere (command-r) - Requires credit card, good structured output
- * 8. Together AI (meta-llama) - Requires credit card, fast inference
- * 9. Replicate (llama-3) - Requires credit card, serverless inference
- * 10. Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
+ * 5. OpenRouter (various) - Aggregates multiple models, some free options
+ * 6. Cohere (command-r) - Trial key free, rate-limited, good structured output
+ * 7. Together AI (meta-llama) - Requires credit card, fast inference
+ * 8. NVIDIA NIM (various) - Free serverless APIs for development, no credit card needed
+ * 9. Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
  */
 
 sealed class AIProvider(val name: String, val requiresCreditCard: Boolean = false) {
@@ -34,11 +33,10 @@ sealed class AIProvider(val name: String, val requiresCreditCard: Boolean = fals
     object GEMINI : AIProvider("Gemini", false)
     object MISTRAL : AIProvider("Mistral", false)
     object HUGGINGFACE : AIProvider("HuggingFace", false)
-    object DEEPSEEK : AIProvider("DeepSeek", false)
     object OPENROUTER : AIProvider("OpenRouter", false)
-    object COHERE : AIProvider("Cohere", true)
+    object COHERE : AIProvider("Cohere", false)
     object TOGETHER : AIProvider("Together", true)
-    object REPLICATE : AIProvider("Replicate", true)
+    object NVIDIA : AIProvider("NVIDIA", false)
     object ANTHROPIC : AIProvider("Anthropic", true)
 }
 
@@ -63,11 +61,10 @@ class UnifiedAIProvider {
             AIProvider.GEMINI,
             AIProvider.MISTRAL,
             AIProvider.HUGGINGFACE,
-            AIProvider.DEEPSEEK,
             AIProvider.OPENROUTER,
             AIProvider.COHERE,
             AIProvider.TOGETHER,
-            AIProvider.REPLICATE,
+            AIProvider.NVIDIA,
             AIProvider.ANTHROPIC
         )
     }
@@ -81,11 +78,10 @@ class UnifiedAIProvider {
             AIProvider.GEMINI -> settings.geminiApiKey.isNotEmpty()
             AIProvider.MISTRAL -> settings.mistralApiKey.isNotEmpty()
             AIProvider.HUGGINGFACE -> settings.huggingfaceApiKey.isNotEmpty()
-            AIProvider.DEEPSEEK -> settings.deepseekApiKey.isNotEmpty()
             AIProvider.OPENROUTER -> settings.openrouterApiKey.isNotEmpty()
             AIProvider.COHERE -> settings.cohereApiKey.isNotEmpty()
             AIProvider.TOGETHER -> settings.togetherApiKey.isNotEmpty()
-            AIProvider.REPLICATE -> settings.replicateApiKey.isNotEmpty()
+            AIProvider.NVIDIA -> settings.nvidiaApiKey.isNotEmpty()
             AIProvider.ANTHROPIC -> settings.anthropicApiKey.isNotEmpty()
         }
     }
@@ -99,11 +95,10 @@ class UnifiedAIProvider {
             AIProvider.GEMINI -> settings.geminiModel
             AIProvider.MISTRAL -> settings.mistralModel
             AIProvider.HUGGINGFACE -> settings.huggingfaceModel
-            AIProvider.DEEPSEEK -> settings.deepseekModel
             AIProvider.OPENROUTER -> settings.openrouterModel
             AIProvider.COHERE -> settings.cohereModel
             AIProvider.TOGETHER -> settings.togetherModel
-            AIProvider.REPLICATE -> settings.replicateModel
+            AIProvider.NVIDIA -> settings.nvidiaModel
             AIProvider.ANTHROPIC -> settings.anthropicModel
         }
     }
@@ -117,11 +112,10 @@ class UnifiedAIProvider {
             AIProvider.GEMINI -> settings.geminiApiKey
             AIProvider.MISTRAL -> settings.mistralApiKey
             AIProvider.HUGGINGFACE -> settings.huggingfaceApiKey
-            AIProvider.DEEPSEEK -> settings.deepseekApiKey
             AIProvider.OPENROUTER -> settings.openrouterApiKey
             AIProvider.COHERE -> settings.cohereApiKey
             AIProvider.TOGETHER -> settings.togetherApiKey
-            AIProvider.REPLICATE -> settings.replicateApiKey
+            AIProvider.NVIDIA -> settings.nvidiaApiKey
             AIProvider.ANTHROPIC -> settings.anthropicApiKey
         }
     }
@@ -134,12 +128,11 @@ class UnifiedAIProvider {
             AIProvider.GROQ -> "https://api.groq.com/openai/v1/chat/completions"
             AIProvider.GEMINI -> "https://generativelanguage.googleapis.com/v1beta/models/${getModel(provider)}:generateContent?key=${getApiKey(provider)}"
             AIProvider.MISTRAL -> "https://api.mistral.ai/v1/chat/completions"
-            AIProvider.HUGGINGFACE -> "https://api-inference.huggingface.co/models/${getModel(provider)}/v1/chat/completions"
-            AIProvider.DEEPSEEK -> "https://api.deepseek.com/v1/chat/completions"
+            AIProvider.HUGGINGFACE -> "https://router.huggingface.co/v1/chat/completions"
             AIProvider.OPENROUTER -> "https://openrouter.ai/api/v1/chat/completions"
-            AIProvider.COHERE -> "https://api.cohere.ai/v1/chat"
+            AIProvider.COHERE -> "https://api.cohere.com/v2/chat"
             AIProvider.TOGETHER -> "https://api.together.xyz/v1/chat/completions"
-            AIProvider.REPLICATE -> "https://api.replicate.com/v1/predictions"
+            AIProvider.NVIDIA -> "https://integrate.api.nvidia.com/v1/chat/completions"
             AIProvider.ANTHROPIC -> "https://api.anthropic.com/v1/messages"
         }
     }
@@ -179,7 +172,7 @@ class UnifiedAIProvider {
                 }
             }
             else -> {
-                // OpenAI-compatible format (Groq, Mistral, HuggingFace, DeepSeek, OpenRouter, Cohere, Together, Replicate)
+                // OpenAI-compatible format (Groq, Mistral, HuggingFace, OpenRouter, Cohere, Together, NVIDIA)
                 JsonObject().apply {
                     add("model", gson.toJsonTree(getModel(provider)))
                     add("messages", JsonArray().apply {

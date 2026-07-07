@@ -17,12 +17,11 @@ import kotlinx.coroutines.withContext
  * 2. Google Gemini (gemini-2.5-flash) - Large context, rate limits on free tier
  * 3. Mistral AI (mistral-large-latest) - Good JSON support, free tier available
  * 4. Hugging Face Inference - Free tier, many models available
- * 5. DeepSeek (deepseek-chat) - Chinese AI, free tier, good for general tasks
- * 6. OpenRouter (various) - Aggregates multiple models, some free options
- * 7. Cohere (command-r) - Requires credit card, good structured output
- * 8. Together AI (meta-llama) - Requires credit card, fast inference
- * 9. Replicate (llama-3) - Requires credit card, serverless inference
- * 10. Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
+ * 5. OpenRouter (various) - Aggregates multiple models, some free options
+ * 6. Cohere (command-r) - Trial key free, rate-limited, good structured output
+ * 7. Together AI (meta-llama) - Requires credit card, fast inference
+ * 8. NVIDIA NIM (various) - Free serverless APIs for development, no credit card needed
+ * 9. Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
  */
 class RawDataProcessor(
     private val aiProvider: UnifiedAIProvider = UnifiedAIProvider()

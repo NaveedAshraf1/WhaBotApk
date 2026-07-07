@@ -134,27 +134,29 @@ data class AppSettings(
     var geminiApiKey: String = BuildConfig.GEMINI_API_KEY,
     var geminiModel: String = "gemini-2.5-flash",
     // Provider 3: Mistral AI (mistral-large-latest) - Good JSON support, free tier available
-    var mistralApiKey: String = "",
+    // Key obtained from https://console.mistral.ai/ - free tier, no credit card needed
+    var mistralApiKey: String = BuildConfig.MISTRAL_API_KEY,
     var mistralModel: String = "mistral-large-latest",
     // Provider 4: Hugging Face Inference - Free tier, many models available
-    var huggingfaceApiKey: String = "",
-    var huggingfaceModel: String = "meta-llama/Llama-3.2-3B-Instruct",
-    // Provider 5: DeepSeek (deepseek-chat) - Chinese AI, free tier, good for general tasks
-    var deepseekApiKey: String = "",
-    var deepseekModel: String = "deepseek-chat",
-    // Provider 6: OpenRouter (various) - Aggregates multiple models, some free options
-    var openrouterApiKey: String = "",
-    var openrouterModel: String = "meta-llama/llama-3.2-3b-instruct:free",
-    // Provider 7: Cohere (command-r) - Requires credit card, good structured output
-    var cohereApiKey: String = "",
-    var cohereModel: String = "command-r",
-    // Provider 8: Together AI (meta-llama) - Requires credit card, fast inference
+    // Key obtained from https://huggingface.co/settings/tokens - free tier, no credit card needed
+    var huggingfaceApiKey: String = BuildConfig.HUGGINGFACE_API_KEY,
+    var huggingfaceModel: String = "Qwen/Qwen2.5-7B-Instruct",
+    // Provider 5: OpenRouter (various) - Aggregates multiple models, some free options
+    // Key obtained from https://openrouter.ai/ - free models available, no credit card needed
+    var openrouterApiKey: String = BuildConfig.OPENROUTER_API_KEY,
+    var openrouterModel: String = "openai/gpt-oss-20b:free",
+    // Provider 6: Cohere (command-r) - Trial key free, rate-limited, good structured output
+    // Key obtained from https://dashboard.cohere.com/ - free trial key, no credit card needed
+    var cohereApiKey: String = BuildConfig.COHERE_API_KEY,
+    var cohereModel: String = "command-r-08-2024",
+    // Provider 7: Together AI (meta-llama) - Requires credit card, fast inference
     var togetherApiKey: String = "",
     var togetherModel: String = "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-    // Provider 9: Replicate (llama-3) - Requires credit card, serverless inference
-    var replicateApiKey: String = "",
-    var replicateModel: String = "meta/meta-llama-3-70b-instruct",
-    // Provider 10: Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
+    // Provider 8: NVIDIA NIM (various) - Free serverless APIs for development, no credit card needed
+    // Key obtained from https://build.nvidia.com/ - free tier, no credit card needed
+    var nvidiaApiKey: String = "",
+    var nvidiaModel: String = "nvidia/llama-3.1-nemotron-70b-instruct",
+    // Provider 9: Anthropic Claude (claude-3-haiku) - Requires credit card, excellent quality
     var anthropicApiKey: String = "",
     var anthropicModel: String = "claude-3-5-haiku-20241022",
     var autoReplyEnabled: Boolean = true,

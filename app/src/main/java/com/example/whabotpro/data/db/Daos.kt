@@ -60,7 +60,7 @@ interface CategoryDao {
     @Query("SELECT * FROM categories WHERE section = :section ORDER BY name")
     fun getBySection(section: String): List<Category>
 
-    @Query("SELECT * FROM categories WHERE section = :section AND name = :name LIMIT 1")
+    @Query("SELECT * FROM categories WHERE section = :section AND name = :name COLLATE NOCASE LIMIT 1")
     fun findByNameAndSection(section: String, name: String): Category?
 
     @Query("SELECT * FROM categories ORDER BY name")

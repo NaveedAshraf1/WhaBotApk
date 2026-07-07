@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -23,14 +25,24 @@ android {
             abiFilters.add("arm64-v8a")
         }
 
-        // API keys — injected at build time from environment or gradle.properties.
-        // Set via -PGROQ_API_KEY=xxx / -PGEMINI_API_KEY=xxx or env vars.
-        val groqKey = (project.findProperty("GROQ_API_KEY") as String?)
-            ?: System.getenv("GROQ_API_KEY") ?: ""
-        val geminiKey = (project.findProperty("GEMINI_API_KEY") as String?)
-            ?: System.getenv("GEMINI_API_KEY") ?: ""
+        // API keys — loaded from secrets.properties (gitignored) or env vars.
+        val secretsFile = rootProject.file("secrets.properties")
+        val secrets = Properties()
+        if (secretsFile.exists()) secrets.load(secretsFile.inputStream())
+        fun secret(key: String): String =
+            (project.findProperty(key) as String?) ?: System.getenv(key) ?: secrets.getProperty(key) ?: ""
+        val groqKey = secret("GROQ_API_KEY")
+        val geminiKey = secret("GEMINI_API_KEY")
+        val mistralKey = secret("MISTRAL_API_KEY")
+        val hfKey = secret("HUGGINGFACE_API_KEY")
+        val openrouterKey = secret("OPENROUTER_API_KEY")
+        val cohereKey = secret("COHERE_API_KEY")
         buildConfigField("String", "GROQ_API_KEY", "\"$groqKey\"")
         buildConfigField("String", "GEMINI_API_KEY", "\"$geminiKey\"")
+        buildConfigField("String", "MISTRAL_API_KEY", "\"$mistralKey\"")
+        buildConfigField("String", "HUGGINGFACE_API_KEY", "\"$hfKey\"")
+        buildConfigField("String", "OPENROUTER_API_KEY", "\"$openrouterKey\"")
+        buildConfigField("String", "COHERE_API_KEY", "\"$cohereKey\"")
 
         externalNativeBuild {
             cmake {

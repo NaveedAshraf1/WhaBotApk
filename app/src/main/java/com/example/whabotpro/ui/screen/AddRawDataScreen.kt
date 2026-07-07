@@ -66,7 +66,7 @@ fun AddRawDataScreen(
     val context = LocalContext.current
     
     // Character limit to avoid rate limits and token issues
-    val maxChars = 10000
+    val maxChars = 5000
     val isOverLimit = rawText.length > maxChars
 
     Scaffold(

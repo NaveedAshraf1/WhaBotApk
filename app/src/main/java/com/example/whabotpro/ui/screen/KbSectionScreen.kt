@@ -1,5 +1,6 @@
 package com.example.whabotpro.ui.screen
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -69,6 +70,7 @@ fun KbSectionScreen(vm: AppViewModel, section: String, title: String, subtitle: 
         KbItemEditorDialog(
             item = editingItem,
             section = section,
+            vm = vm,
             onDismiss = { showEditor = false },
             onSave = { item ->
                 if (editingItem == null) vm.addKbItem(item)
@@ -153,10 +155,12 @@ private fun KbItemDetailDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KbItemEditorDialog(
     item: KbItem?,
     section: String,
+    vm: AppViewModel,
     onDismiss: () -> Unit,
     onSave: (KbItem) -> Unit
 ) {
@@ -166,6 +170,10 @@ private fun KbItemEditorDialog(
     var description by remember { mutableStateOf(editing.description) }
     var price by remember { mutableStateOf(editing.price) }
     var category by remember { mutableStateOf(editing.category) }
+    var showCategorySheet by remember { mutableStateOf(false) }
+
+    // Categories for this section
+    val categories = remember(section) { vm.categoriesBySection(section) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -180,7 +188,23 @@ private fun KbItemEditorDialog(
                 Spacer(Modifier.height(8.dp))
                 OutlinedTextField(value = price, onValueChange = { price = it }, label = { Text("Price") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Category") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                // Category selector — tappable, opens bottom sheet
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showCategorySheet = true }
+                ) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
+                        label = { Text("Category") },
+                        placeholder = { Text("Tap to select category") },
+                        trailingIcon = { Icon(Icons.Filled.ArrowDropDown, contentDescription = null) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         },
         confirmButton = {
@@ -196,4 +220,116 @@ private fun KbItemEditorDialog(
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
+
+    // ── Category Bottom Sheet ──
+    if (showCategorySheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showCategorySheet = false }
+        ) {
+            Column(modifier = Modifier.padding(bottom = 24.dp)) {
+                Text(
+                    "Select Category",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+                )
+                HorizontalDivider()
+
+                if (categories.isEmpty()) {
+                    // No categories yet — allow creating one inline
+                    var newCatName by remember { mutableStateOf("") }
+                    Column(modifier = Modifier.padding(24.dp)) {
+                        Text(
+                            "No categories yet for this section.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        OutlinedTextField(
+                            value = newCatName,
+                            onValueChange = { newCatName = it },
+                            label = { Text("New category name") },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Button(
+                            onClick = {
+                                if (newCatName.isNotBlank()) {
+                                    val cat = com.example.whabotpro.data.model.Category(
+                                        section = section,
+                                        name = newCatName.trim()
+                                    )
+                                    vm.addCategory(cat)
+                                    category = newCatName.trim()
+                                    showCategorySheet = false
+                                }
+                            },
+                            enabled = newCatName.isNotBlank(),
+                            modifier = Modifier.fillMaxWidth()
+                        ) { Text("Add & Select") }
+                    }
+                } else {
+                    // Show existing categories as a list
+                    categories.forEach { cat ->
+                        ListItem(
+                            headlineContent = { Text(cat.name) },
+                            leadingContent = {
+                                Icon(Icons.Filled.Label, contentDescription = null)
+                            },
+                            trailingContent = {
+                                if (category == cat.name) {
+                                    Icon(Icons.Filled.Check, contentDescription = "Selected")
+                                }
+                            },
+                            modifier = Modifier.clickable {
+                                category = cat.name
+                                showCategorySheet = false
+                            }
+                        )
+                    }
+                    HorizontalDivider()
+                    // Option to add a new category
+                    var newCatName by remember { mutableStateOf("") }
+                    var showAddField by remember { mutableStateOf(false) }
+                    if (showAddField) {
+                        Column(modifier = Modifier.padding(24.dp)) {
+                            OutlinedTextField(
+                                value = newCatName,
+                                onValueChange = { newCatName = it },
+                                label = { Text("New category name") },
+                                singleLine = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Row {
+                                TextButton(onClick = { showAddField = false; newCatName = "" }) { Text("Cancel") }
+                                Spacer(Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        if (newCatName.isNotBlank()) {
+                                            val cat = com.example.whabotpro.data.model.Category(
+                                                section = section,
+                                                name = newCatName.trim()
+                                            )
+                                            vm.addCategory(cat)
+                                            category = newCatName.trim()
+                                            showCategorySheet = false
+                                        }
+                                    },
+                                    enabled = newCatName.isNotBlank()
+                                ) { Text("Add") }
+                            }
+                        }
+                    } else {
+                        ListItem(
+                            headlineContent = { Text("+ Add new category") },
+                            leadingContent = { Icon(Icons.Filled.Add, contentDescription = null) },
+                            modifier = Modifier.clickable { showAddField = true }
+                        )
+                    }
+                }
+            }
+        }
+    }
 }
